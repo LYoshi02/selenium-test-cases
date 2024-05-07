@@ -2,6 +2,8 @@ import { Browser, Builder, By, WebDriver, until } from "selenium-webdriver";
 import path from "path";
 import fs from "fs";
 
+import { envVariables } from "../config";
+
 const EMAIL_INPUT_NAME = "userLoginId";
 const PASSWORD_INPUT_NAME = "password";
 
@@ -44,6 +46,36 @@ describe("Funcionalidad d - Inicio de Sesión", () => {
     saveOutputImage(screenshot, screenshotName);
     return await driver.takeScreenshot();
   };
+
+  test.skip("d1 - Inicio de sesión exitoso con credenciales válidas", async () => {
+    // ACT
+    const validEmail = envVariables.netflixEmail;
+    const validPassword = envVariables.netflixPassword;
+
+    // ARRANGE
+    // 1. Abrir la página de inicio de sesión de Netflix
+    await openLoginPage();
+
+    // 2. Ingresar el email y contraseña válidos del usuario.
+    await typeInInput(EMAIL_INPUT_NAME, validEmail);
+    await typeInInput(PASSWORD_INPUT_NAME, validPassword);
+
+    // 3. Hacer clic en el botón de "Iniciar sesión"
+    await clickLoginButton();
+
+    // ASSERT
+    const manageProfilesButtonText = await driver
+      .wait(
+        until.elementLocated(By.css('a[href="/ManageProfiles"]')),
+        DISPLAY_TIMEOUT,
+      )
+      .getText();
+    const expectedMessage = /administrar perfiles/i;
+
+    await saveScreenshot("d1-result.png");
+
+    expect(manageProfilesButtonText).toMatch(expectedMessage);
+  });
 
   test("d2 - Inicio de sesión fallido con email inválido", async () => {
     // ACT
