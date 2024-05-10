@@ -1,51 +1,18 @@
-import { Browser, Builder, By, WebDriver, until } from "selenium-webdriver";
-import path from "path";
-import fs from "fs";
-
 import { envVariables } from "../config";
-
-const EMAIL_INPUT_NAME = "userLoginId";
-const PASSWORD_INPUT_NAME = "password";
-
-const DISPLAY_TIMEOUT = 10000; // 10 seconds in milliseconds
-
-const saveOutputImage = (base64Image: string, imageName: string) => {
-  const filePath = path.join(__dirname, "..", "..", "output", imageName);
-  fs.writeFileSync(filePath, base64Image, "base64");
-};
+import { initializeWebDriver, terminateWebDriver } from "../utils";
+import { LoginTestUtils } from "../utils/login";
 
 describe("Funcionalidad d - Inicio de Sesión", () => {
-  let driver: WebDriver;
+  let loginTestUtils: LoginTestUtils;
 
-  beforeAll(async () => {
-    driver = await new Builder().forBrowser(Browser.CHROME).build();
+  beforeEach(async () => {
+    const driver = await initializeWebDriver();
+    loginTestUtils = new LoginTestUtils(driver);
   });
 
-  afterAll(async () => {
-    await driver.quit();
+  afterEach(async () => {
+    await terminateWebDriver(loginTestUtils.getDriver());
   });
-
-  const openLoginPage = async () => {
-    await driver.get("https://www.netflix.com/login");
-  };
-
-  const typeInInput = async (inputName: string, text: string) => {
-    const inputElement = await driver.findElement(By.name(inputName));
-    inputElement.sendKeys(text);
-  };
-
-  const clickLoginButton = async () => {
-    const loginButtonElement = await driver.findElement(
-      By.css('button[type="submit"]'),
-    );
-    loginButtonElement.click();
-  };
-
-  const saveScreenshot = async (screenshotName: string) => {
-    const screenshot = await driver.takeScreenshot();
-    saveOutputImage(screenshot, screenshotName);
-    return await driver.takeScreenshot();
-  };
 
   test.skip("d1 - Inicio de sesión exitoso con credenciales válidas", async () => {
     // ACT
@@ -54,25 +21,21 @@ describe("Funcionalidad d - Inicio de Sesión", () => {
 
     // ARRANGE
     // 1. Abrir la página de inicio de sesión de Netflix
-    await openLoginPage();
+    await loginTestUtils.openLoginPage();
 
     // 2. Ingresar el email y contraseña válidos del usuario.
-    await typeInInput(EMAIL_INPUT_NAME, validEmail);
-    await typeInInput(PASSWORD_INPUT_NAME, validPassword);
+    await loginTestUtils.typeInEmailInput(validEmail);
+    await loginTestUtils.typeInPasswordInput(validPassword);
 
     // 3. Hacer clic en el botón de "Iniciar sesión"
-    await clickLoginButton();
+    await loginTestUtils.clickLoginButton();
 
     // ASSERT
-    const manageProfilesButtonText = await driver
-      .wait(
-        until.elementLocated(By.css('a[href="/ManageProfiles"]')),
-        DISPLAY_TIMEOUT,
-      )
-      .getText();
+    const manageProfilesButtonText =
+      await loginTestUtils.getManageProfilesButtonText();
     const expectedMessage = /administrar perfiles/i;
 
-    await saveScreenshot("d1-result.png");
+    await loginTestUtils.saveScreenshot("d1-result.png");
 
     expect(manageProfilesButtonText).toMatch(expectedMessage);
   });
@@ -84,27 +47,25 @@ describe("Funcionalidad d - Inicio de Sesión", () => {
 
     // ARRANGE
     // 1. Abrir la página de inicio de sesión de Netflix
-    await openLoginPage();
+    await loginTestUtils.openLoginPage();
 
     // 2. Ingresar el email inválido
-    await typeInInput(EMAIL_INPUT_NAME, invalidEmail);
+    await loginTestUtils.typeInEmailInput(invalidEmail);
 
     // 3. Ingresar una contraseña de al menos 4 caracteres
-    await typeInInput(PASSWORD_INPUT_NAME, somePassword);
+    await loginTestUtils.typeInPasswordInput(somePassword);
 
     // 4. Hacer clic en el botón de "Iniciar sesión"
-    await clickLoginButton();
+    await loginTestUtils.clickLoginButton();
 
     // ASSERT
-    const displayedMessage = await driver
-      .wait(until.elementLocated(By.css('div[role="alert"]')), DISPLAY_TIMEOUT)
-      .getText();
+    const displayedAlertMessage = await loginTestUtils.getAlertText();
     const expectedMessage =
       /No podemos encontrar una cuenta con esta dirección de email. Reinténtalo o crea una cuenta nueva./i;
 
-    await saveScreenshot("d2-result.png");
+    await loginTestUtils.saveScreenshot("d2-result.png");
 
-    expect(displayedMessage).toMatch(expectedMessage);
+    expect(displayedAlertMessage).toMatch(expectedMessage);
   });
 
   test("d3 - Inicio de sesión fallido con contraseña incorrecta", async () => {
@@ -114,60 +75,45 @@ describe("Funcionalidad d - Inicio de Sesión", () => {
 
     // ARRANGE
     // 1. Abrir la página de inicio de sesión de Netflix
-    await openLoginPage();
+    await loginTestUtils.openLoginPage();
 
     // 2. Ingresar el email del usuario
-    await typeInInput(EMAIL_INPUT_NAME, validEmail);
+    await loginTestUtils.typeInEmailInput(validEmail);
 
     // 3. Ingresar una contraseña incorrecta
-    await typeInInput(PASSWORD_INPUT_NAME, invalidPassword);
+    await loginTestUtils.typeInPasswordInput(invalidPassword);
 
     // 3. Hacer clic en el botón de "Iniciar sesión"
-    await clickLoginButton();
+    await loginTestUtils.clickLoginButton();
 
     // ASSERT
-    const displayedMessage = await driver
-      .wait(until.elementLocated(By.css('div[role="alert"]')), DISPLAY_TIMEOUT)
-      .getText();
+    const displayedAlertMessage = await loginTestUtils.getAlertText();
     const expectedMessage = /Contraseña incorrecta para test@test.com/i;
 
-    await saveScreenshot("d3-result.png");
+    await loginTestUtils.saveScreenshot("d3-result.png");
 
-    expect(displayedMessage).toMatch(expectedMessage);
+    expect(displayedAlertMessage).toMatch(expectedMessage);
   });
 
   test("d4 - Inicio de sesión sin carga de credenciales", async () => {
     // ARRANGE
     // 1. Abrir la página de inicio de sesión de Netflix
-    await openLoginPage();
+    await loginTestUtils.openLoginPage();
 
     // 2. Hacer clic en el botón de "Iniciar sesión"
-    await clickLoginButton();
+    await loginTestUtils.clickLoginButton();
 
     // ASSERT
-    const displayedEmailErrorMessage = await driver
-      .wait(
-        until.elementLocated(
-          By.css('div[data-uia="login-field+validationMessage"]'),
-        ),
-        DISPLAY_TIMEOUT,
-      )
-      .getText();
+    const displayedEmailErrorMessage = await loginTestUtils.getEmailErrorText();
     const expectedEmailErrorMessage =
       /Ingresa un email o un número de teléfono válido./i;
 
-    const displayedPasswordErrorMessage = await driver
-      .wait(
-        until.elementLocated(
-          By.css('div[data-uia="password-field+validationMessage"]'),
-        ),
-        DISPLAY_TIMEOUT,
-      )
-      .getText();
+    const displayedPasswordErrorMessage =
+      await loginTestUtils.getPasswordErrorText();
     const expectedPasswordErrorMessage =
       /La contraseña debe tener entre 4 y 60 caracteres./i;
 
-    await saveScreenshot("d4-result.png");
+    await loginTestUtils.saveScreenshot("d4-result.png");
 
     expect(displayedEmailErrorMessage).toMatch(expectedEmailErrorMessage);
     expect(displayedPasswordErrorMessage).toMatch(expectedPasswordErrorMessage);
